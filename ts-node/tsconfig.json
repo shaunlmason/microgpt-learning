@@ -18,6 +18,6 @@
     "strictNullChecks": true,
     "target": "ES2022",
   },
-  "include": ["*.ts"],
+  "include": ["**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

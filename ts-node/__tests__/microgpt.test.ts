@@ -19,7 +19,7 @@ import {
   getParams,
   gpt,
   Config,
-} from "./microgpt.ts";
+} from "../microgpt.ts";
 
 // Load Python reference values
 interface ReferenceValues {
@@ -126,12 +126,12 @@ function assertArrayClose(
 
 // Load reference values before tests
 before(() => {
-  if (!existsSync("reference_values.json")) {
+  if (!existsSync("../reference_values.json")) {
     throw new Error(
-      "reference_values.json not found. Run: python3 microgpt_reference.py"
+      "../reference_values.json not found. Run: python3 py/microgpt_reference.py"
     );
   }
-  ref = JSON.parse(readFileSync("reference_values.json", "utf-8"));
+  ref = JSON.parse(readFileSync("../reference_values.json", "utf-8"));
 });
 
 // ==================== PRNG Tests ====================
