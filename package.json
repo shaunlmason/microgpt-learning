@@ -1,0 +1,17 @@
+{
+  "name": "microgpt",
+  "version": "1.0.0",
+  "description": "The most atomic way to train and inference a GPT in pure, dependency-free TypeScript.",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^22.13.5",
+    "typescript": "^5.7.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/microgpt.js",
+    "test": "npx tsx --test microgpt.test.ts",
+    "train": "npx tsx microgpt.ts",
+    "reference": "python3 microgpt_reference.py"
+  }
+}
