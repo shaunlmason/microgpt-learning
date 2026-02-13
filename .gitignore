@@ -6,3 +6,8 @@ node_modules
 
 reference_values.json
 input.txt
+
+# Benchmark results (machine-specific)
+benchmarks/results/*.json
+benchmarks/results/*.md
+!benchmarks/results/.gitkeep
