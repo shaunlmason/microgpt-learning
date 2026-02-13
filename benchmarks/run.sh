@@ -38,6 +38,7 @@ NC='\033[0m' # No Color
 declare -a BENCHMARKS=(
     "python|python3 benchmark_json.py|py"
     "typescript|npx tsx benchmark.ts|ts-node"
+    "bun|bun run benchmark.ts|ts-bun"
     # Add new languages here:
     # "rust|cargo run --release --bin benchmark|rs"
     # "go|go run ./cmd/benchmark|go"

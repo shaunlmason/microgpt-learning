@@ -11,6 +11,7 @@ A language-agnostic benchmarking framework for comparing microgpt implementation
 # Run specific language only
 ./benchmarks/run.sh python
 ./benchmarks/run.sh typescript
+./benchmarks/run.sh bun
 
 # List available benchmarks
 ./benchmarks/run.sh --list
@@ -22,6 +23,7 @@ cat benchmarks/results/comparison.md
 ## Requirements
 
 - **jq**: Required for JSON parsing in the comparison script
+
   ```bash
   # macOS
   brew install jq
@@ -122,7 +124,7 @@ cat benchmarks/results/your-language.json
 All implementations must run these **standardized benchmarks** with consistent parameters:
 
 | Benchmark | Name | Description | Parameters |
-|-----------|------|-------------|------------|
+| ----------- | ------ | ------------- | ------------ |
 | 1 | `random_1m` | Random number generation | 1,000,000 calls to `random()` |
 | 2 | `gauss_100k` | Gaussian random generation | 100,000 calls to `gauss(0, 1)` |
 | 3 | `value_forward_10k` | Autograd forward pass | 10,000 iterations: `v = ((v + 1) * 2)^2.relu()` |
@@ -134,7 +136,7 @@ All implementations must run these **standardized benchmarks** with consistent p
 
 Use these parameters for GPT benchmarks:
 
-```
+```bash
 SEED = 42
 N_EMBD = 16
 N_HEAD = 4
@@ -154,7 +156,7 @@ VOCAB_SIZE = 27
 
 Results are saved to `benchmarks/results/`:
 
-```
+```bash
 benchmarks/results/
 ├── python.json       # Python benchmark results
 ├── typescript.json   # TypeScript benchmark results
@@ -184,6 +186,7 @@ The `comparison.md` file is auto-generated when you run `./benchmarks/run.sh`.
 ### "jq: command not found"
 
 Install jq for JSON parsing:
+
 ```bash
 brew install jq  # macOS
 apt-get install jq  # Ubuntu/Debian
@@ -192,6 +195,7 @@ apt-get install jq  # Ubuntu/Debian
 ### Invalid JSON output
 
 Ensure your benchmark script:
+
 - Outputs **only** JSON to stdout
 - Uses stderr for any progress/debug messages
 - Includes all required fields in the schema
@@ -199,6 +203,7 @@ Ensure your benchmark script:
 ### Benchmark not found
 
 Check that:
+
 - The working directory exists
 - The command is correct
 - Any build steps completed (e.g., `cargo build --release`)

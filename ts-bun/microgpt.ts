@@ -5,8 +5,6 @@
  * Translated from @karpathy's microgpt.py
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-
 // ========== Mersenne Twister PRNG (MT19937) ==========
 // Implements the same algorithm as Python's random module
 
@@ -480,21 +478,27 @@ export async function main(): Promise<void> {
 
   // Load or download input dataset
   const inputPath = "input.txt";
-  if (!existsSync(inputPath)) {
+  const inputFile = Bun.file(inputPath);
+  if (!(await inputFile.exists())) {
     console.log("Downloading input.txt...");
+
     const namesUrl =
       "https://raw.githubusercontent.com/karpathy/makemore/refs/heads/master/names.txt";
+
     const response = await fetch(namesUrl);
     const text = await response.text();
-    writeFileSync(inputPath, text);
+    await inputFile.write(text);
   }
 
+  const file = Bun.file(inputPath);
+
   // Parse documents
-  let docs = readFileSync(inputPath, "utf-8")
+  let docs = (await file.text())
     .trim()
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
+
   rng.shuffle(docs);
   console.log(`num docs: ${docs.length}`);
 

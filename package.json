@@ -3,16 +3,13 @@
   "description": "An exploration of training and inference a GPT various languages.",
   "packageManager": "npm@11.6.2",
   "type": "module",
-  "devDependencies": {
-    "@types/node": "^22.13.5",
-    "turbo": "2.8.7"
-  },
   "scripts": {
     "build": "turbo build",
     "test": "turbo test",
     "train": "turbo train"
   },
   "workspaces": [
+    "ts-bun",
     "ts-node"
   ]
 }
