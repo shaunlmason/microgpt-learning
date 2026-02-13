@@ -1,6 +1,6 @@
 {
   "name": "@shaunlmason/microgpt-learning",
-  "description": "An exploration of training and inference a GPT various languages.",
+  "description": "A comparative exploration of training and inference workflows for GPT models in different programming languages.",
   "packageManager": "npm@11.6.2",
   "type": "module",
   "scripts": {
