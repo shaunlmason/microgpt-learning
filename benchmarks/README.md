@@ -12,6 +12,7 @@ A language-agnostic benchmarking framework for comparing microgpt implementation
 ./benchmarks/run.sh python
 ./benchmarks/run.sh typescript
 ./benchmarks/run.sh bun
+./benchmarks/run.sh rust
 
 # List available benchmarks
 ./benchmarks/run.sh --list
@@ -36,7 +37,7 @@ cat benchmarks/results/comparison.md
 
 ## Adding a New Language
 
-To add benchmarks for a new language (e.g., Rust, Go, Zig):
+To add benchmarks for a new language (e.g., Go, Zig):
 
 ### 1. Create the benchmark script
 
@@ -159,7 +160,9 @@ Results are saved to `benchmarks/results/`:
 ```bash
 benchmarks/results/
 ├── python.json       # Python benchmark results
-├── typescript.json   # TypeScript benchmark results
+├── typescript.json   # TypeScript/Node.js benchmark results
+├── bun.json          # TypeScript/Bun benchmark results
+├── rust.json         # Rust benchmark results
 ├── comparison.md     # Generated comparison table
 └── .gitkeep
 ```

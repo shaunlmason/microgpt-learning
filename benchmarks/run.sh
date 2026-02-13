@@ -39,8 +39,8 @@ declare -a BENCHMARKS=(
     "python|python3 benchmark_json.py|py"
     "typescript|npx tsx benchmark.ts|ts-node"
     "bun|bun run benchmark.ts|ts-bun"
+    "rust|cargo run --release --bin benchmark 2>/dev/null|rust"
     # Add new languages here:
-    # "rust|cargo run --release --bin benchmark|rs"
     # "go|go run ./cmd/benchmark|go"
     # "zig|zig build run-benchmark|zig"
 )
