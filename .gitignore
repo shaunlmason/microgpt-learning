@@ -8,6 +8,9 @@ target
 reference_values.json
 input.txt
 
+c/microgpt
+c/test_microgpt
+
 # Benchmark results (machine-specific)
 benchmarks/results/*.json
 benchmarks/results/*.md

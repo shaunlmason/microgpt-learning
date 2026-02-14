@@ -13,6 +13,7 @@ A language-agnostic benchmarking framework for comparing microgpt implementation
 ./benchmarks/run.sh typescript
 ./benchmarks/run.sh bun
 ./benchmarks/run.sh rust
+./benchmarks/run.sh c
 
 # List available benchmarks
 ./benchmarks/run.sh --list
@@ -163,6 +164,7 @@ benchmarks/results/
 ├── typescript.json   # TypeScript/Node.js benchmark results
 ├── bun.json          # TypeScript/Bun benchmark results
 ├── rust.json         # Rust benchmark results
+├── c.json            # C benchmark results
 ├── comparison.md     # Generated comparison table
 └── .gitkeep
 ```

@@ -40,6 +40,7 @@ declare -a BENCHMARKS=(
     "typescript|npx tsx benchmark.ts|ts-node"
     "bun|bun run benchmark.ts|ts-bun"
     "rust|cargo run --release --bin benchmark 2>/dev/null|rust"
+    "c|gcc -O3 -o microgpt microgpt.c -lm && ./microgpt --benchmark 2>&1|c"
     # Add new languages here:
     # "go|go run ./cmd/benchmark|go"
     # "zig|zig build run-benchmark|zig"

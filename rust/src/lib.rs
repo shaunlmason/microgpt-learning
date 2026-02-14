@@ -993,4 +993,448 @@ mod tests {
             assert_eq!(actual, e, "choices[{}]: expected {}, got {}", i, e, actual);
         }
     }
+
+    // ============================================================================
+    // Additional PRNG Tests (matching TypeScript coverage)
+    // ============================================================================
+
+    #[test]
+    fn test_prng_random_values_in_range() {
+        let mut rng = MersenneTwister::new(42);
+        for _ in 0..100 {
+            let val = rng.random();
+            assert!(
+                val >= 0.0 && val < 1.0,
+                "random() value {} out of range [0, 1)",
+                val
+            );
+        }
+    }
+
+    #[test]
+    fn test_prng_random_deterministic() {
+        let mut rng1 = MersenneTwister::new(42);
+        let mut rng2 = MersenneTwister::new(42);
+        for _ in 0..100 {
+            assert_eq!(rng1.random(), rng2.random());
+        }
+    }
+
+    #[test]
+    fn test_prng_random_different_seeds() {
+        let mut rng1 = MersenneTwister::new(42);
+        let mut rng2 = MersenneTwister::new(123);
+        let mut same = 0;
+        for _ in 0..100 {
+            if rng1.random() == rng2.random() {
+                same += 1;
+            }
+        }
+        assert!(same < 5, "Too many matching values between different seeds");
+    }
+
+    #[test]
+    fn test_prng_gauss_respects_mu_sigma() {
+        let mut rng = MersenneTwister::new(42);
+
+        // Test with mu=5, sigma=2
+        let values: Vec<f64> = (0..1000).map(|_| rng.gauss(5.0, 2.0)).collect();
+        let mean = values.iter().sum::<f64>() / values.len() as f64;
+        let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
+        let std = variance.sqrt();
+
+        assert!((mean - 5.0).abs() < 0.2, "Mean should be ~5, got {}", mean);
+        assert!((std - 2.0).abs() < 0.2, "Std should be ~2, got {}", std);
+    }
+
+    #[test]
+    fn test_prng_shuffle_preserves_elements() {
+        let mut rng = MersenneTwister::new(42);
+        let original: Vec<usize> = (0..100).collect();
+        let mut shuffled = original.clone();
+        rng.shuffle(&mut shuffled);
+
+        let mut sorted = shuffled.clone();
+        sorted.sort();
+        assert_eq!(sorted, original, "Shuffle should preserve all elements");
+    }
+
+    #[test]
+    fn test_prng_shuffle_actually_shuffles() {
+        let mut rng = MersenneTwister::new(42);
+        let original: Vec<usize> = (0..100).collect();
+        let mut shuffled = original.clone();
+        rng.shuffle(&mut shuffled);
+
+        let same_positions = original
+            .iter()
+            .zip(shuffled.iter())
+            .filter(|(a, b)| a == b)
+            .count();
+        assert!(same_positions < 20, "Too few elements shuffled");
+    }
+
+    #[test]
+    fn test_prng_choices_respects_weights() {
+        let mut rng = MersenneTwister::new(42);
+        let population = vec![0, 1, 2];
+        let weights = vec![1.0, 2.0, 3.0]; // 3 should appear most often
+
+        let mut counts = vec![0, 0, 0];
+        for _ in 0..1000 {
+            let choice = rng.choices(&population, &weights);
+            counts[choice] += 1;
+        }
+
+        // With weights [1,2,3], 2 should be chosen most, then 1, then 0
+        assert!(
+            counts[2] > counts[1],
+            "Weight 3 should be chosen more than weight 2"
+        );
+        assert!(
+            counts[1] > counts[0],
+            "Weight 2 should be chosen more than weight 1"
+        );
+    }
+
+    #[test]
+    fn test_prng_choices_single_element() {
+        let mut rng = MersenneTwister::new(42);
+        let population = vec![42];
+        let weights = vec![1.0];
+
+        for _ in 0..10 {
+            assert_eq!(rng.choices(&population, &weights), 42);
+        }
+    }
+
+    // ============================================================================
+    // Value Backward Pass Tests (matching TypeScript coverage)
+    // ============================================================================
+
+    #[test]
+    fn test_value_add_gradient() {
+        let x = Value::new(2.0);
+        let y = Value::new(3.0);
+        let z = x.add(&y);
+        z.backward();
+
+        assert!(approx_eq(x.grad(), 1.0, EPSILON), "x.grad should be 1");
+        assert!(approx_eq(y.grad(), 1.0, EPSILON), "y.grad should be 1");
+    }
+
+    #[test]
+    fn test_value_mul_gradient() {
+        let x = Value::new(2.0);
+        let y = Value::new(3.0);
+        let z = x.mul(&y);
+        z.backward();
+
+        assert!(approx_eq(x.grad(), 3.0, EPSILON), "x.grad should be y=3");
+        assert!(approx_eq(y.grad(), 2.0, EPSILON), "y.grad should be x=2");
+    }
+
+    #[test]
+    fn test_value_sub_gradient() {
+        let x = Value::new(5.0);
+        let y = Value::new(3.0);
+        let z = x.sub(&y);
+        z.backward();
+
+        assert!(approx_eq(x.grad(), 1.0, EPSILON), "x.grad should be 1");
+        assert!(approx_eq(y.grad(), -1.0, EPSILON), "y.grad should be -1");
+    }
+
+    #[test]
+    fn test_value_div_gradient() {
+        let x = Value::new(6.0);
+        let y = Value::new(2.0);
+        let z = x.div(&y);
+        z.backward();
+
+        assert!(
+            approx_eq(x.grad(), 0.5, EPSILON),
+            "x.grad should be 1/y=0.5"
+        );
+        assert!(
+            approx_eq(y.grad(), -1.5, EPSILON),
+            "y.grad should be -x/y^2=-1.5"
+        );
+    }
+
+    #[test]
+    fn test_value_pow_gradient_square() {
+        let x = Value::new(3.0);
+        let y = x.pow(2.0);
+        y.backward();
+
+        assert!(approx_eq(x.grad(), 6.0, EPSILON), "x.grad should be 2x=6");
+    }
+
+    #[test]
+    fn test_value_pow_gradient_cube() {
+        let x = Value::new(2.0);
+        let y = x.pow(3.0);
+        y.backward();
+
+        assert!(
+            approx_eq(x.grad(), 12.0, EPSILON),
+            "x.grad should be 3x^2=12"
+        );
+    }
+
+    #[test]
+    fn test_value_neg_gradient() {
+        let x = Value::new(5.0);
+        let y = x.neg();
+        y.backward();
+
+        assert!(approx_eq(x.grad(), -1.0, EPSILON), "x.grad should be -1");
+    }
+
+    #[test]
+    fn test_value_log_gradient() {
+        let x = Value::new(2.0);
+        let y = x.log();
+        y.backward();
+
+        assert!(
+            approx_eq(x.grad(), 0.5, EPSILON),
+            "x.grad should be 1/x=0.5"
+        );
+    }
+
+    #[test]
+    fn test_value_exp_gradient() {
+        let x = Value::new(1.0);
+        let y = x.exp();
+        y.backward();
+
+        assert!(
+            approx_eq(x.grad(), std::f64::consts::E, EPSILON),
+            "x.grad should be exp(1)=e"
+        );
+    }
+
+    #[test]
+    fn test_value_relu_gradient_positive() {
+        let x = Value::new(5.0);
+        let y = x.relu();
+        y.backward();
+
+        assert!(
+            approx_eq(x.grad(), 1.0, EPSILON),
+            "x.grad should be 1 for positive"
+        );
+    }
+
+    #[test]
+    fn test_value_relu_gradient_negative() {
+        let x = Value::new(-5.0);
+        let y = x.relu();
+        y.backward();
+
+        assert!(
+            approx_eq(x.grad(), 0.0, EPSILON),
+            "x.grad should be 0 for negative"
+        );
+    }
+
+    #[test]
+    fn test_value_chain_rule_add_mul() {
+        // (x + y) * z where x=1, y=2, z=3
+        // result = 9
+        // dx = z = 3, dy = z = 3, dz = x+y = 3
+        let x = Value::new(1.0);
+        let y = Value::new(2.0);
+        let z = Value::new(3.0);
+        let result = x.add(&y).mul(&z);
+
+        assert!(approx_eq(result.data(), 9.0, EPSILON));
+        result.backward();
+
+        assert!(approx_eq(x.grad(), 3.0, EPSILON), "x.grad should be z=3");
+        assert!(approx_eq(y.grad(), 3.0, EPSILON), "y.grad should be z=3");
+        assert!(approx_eq(z.grad(), 3.0, EPSILON), "z.grad should be x+y=3");
+    }
+
+    // ============================================================================
+    // Softmax Additional Tests
+    // ============================================================================
+
+    #[test]
+    fn test_softmax_sums_to_one() {
+        let logits: Vec<Value> = vec![
+            Value::new(1.0),
+            Value::new(2.0),
+            Value::new(3.0),
+            Value::new(4.0),
+            Value::new(5.0),
+        ];
+        let probs = softmax(&logits);
+        let sum: f64 = probs.iter().map(|p| p.data()).sum();
+        assert!(
+            approx_eq(sum, 1.0, 1e-9),
+            "softmax should sum to 1, got {}",
+            sum
+        );
+    }
+
+    #[test]
+    fn test_softmax_preserves_order() {
+        let logits: Vec<Value> = vec![Value::new(1.0), Value::new(3.0), Value::new(2.0)];
+        let probs = softmax(&logits);
+
+        // Highest logit (3.0 at index 1) should have highest probability
+        assert!(
+            probs[1].data() > probs[2].data(),
+            "Order should be preserved"
+        );
+        assert!(
+            probs[2].data() > probs[0].data(),
+            "Order should be preserved"
+        );
+    }
+
+    #[test]
+    fn test_softmax_negative_values() {
+        let logits: Vec<Value> = vec![Value::new(-1.0), Value::new(-2.0), Value::new(-3.0)];
+        let probs = softmax(&logits);
+        let sum: f64 = probs.iter().map(|p| p.data()).sum();
+
+        assert!(
+            approx_eq(sum, 1.0, 1e-9),
+            "softmax with negatives should sum to 1"
+        );
+        assert!(
+            probs[0].data() > probs[1].data(),
+            "Highest (least negative) should win"
+        );
+    }
+
+    #[test]
+    fn test_softmax_single_element() {
+        let logits: Vec<Value> = vec![Value::new(5.0)];
+        let probs = softmax(&logits);
+
+        assert_eq!(probs.len(), 1);
+        assert!(
+            approx_eq(probs[0].data(), 1.0, EPSILON),
+            "Single element should have prob 1"
+        );
+    }
+
+    // ============================================================================
+    // RMSNorm Additional Tests
+    // ============================================================================
+
+    #[test]
+    fn test_rmsnorm_same_values() {
+        let x: Vec<Value> = vec![Value::new(5.0), Value::new(5.0), Value::new(5.0)];
+        let normed = rmsnorm(&x);
+
+        // All values should be approximately 1 (or very close)
+        for (i, n) in normed.iter().enumerate() {
+            assert!(
+                approx_eq(n.data(), 1.0, 1e-5),
+                "rmsnorm[{}] of same values should be ~1, got {}",
+                i,
+                n.data()
+            );
+        }
+    }
+
+    #[test]
+    fn test_rmsnorm_unit_rms() {
+        let x: Vec<Value> = vec![Value::new(1.0), Value::new(2.0), Value::new(3.0)];
+        let normed = rmsnorm(&x);
+
+        // Compute RMS of output
+        let rms =
+            (normed.iter().map(|v| v.data().powi(2)).sum::<f64>() / normed.len() as f64).sqrt();
+        assert!(
+            approx_eq(rms, 1.0, 1e-5),
+            "RMS of normalized should be ~1, got {}",
+            rms
+        );
+    }
+
+    // ============================================================================
+    // Linear Layer Additional Tests
+    // ============================================================================
+
+    #[test]
+    fn test_linear_identity() {
+        // 2x3 matrix times 3-vector
+        let x: Vec<Value> = vec![Value::new(1.0), Value::new(2.0), Value::new(3.0)];
+        let w: Vec<Vec<Value>> = vec![
+            vec![Value::new(1.0), Value::new(0.0), Value::new(0.0)],
+            vec![Value::new(0.0), Value::new(1.0), Value::new(0.0)],
+        ];
+        let result = linear(&x, &w);
+
+        assert!(
+            approx_eq(result[0].data(), 1.0, EPSILON),
+            "First output should be 1"
+        );
+        assert!(
+            approx_eq(result[1].data(), 2.0, EPSILON),
+            "Second output should be 2"
+        );
+    }
+
+    #[test]
+    fn test_linear_gradient_flow() {
+        let x = Value::new(2.0);
+        let y = Value::new(3.0);
+        let w: Vec<Vec<Value>> = vec![vec![Value::new(1.0), Value::new(2.0)]];
+        let input = vec![x, y];
+        let result = linear(&input, &w);
+
+        // result[0] = 1*2 + 2*3 = 8
+        assert!(approx_eq(result[0].data(), 8.0, EPSILON));
+
+        result[0].backward();
+        // x.grad = 1, y.grad = 2
+        assert!(approx_eq(input[0].grad(), 1.0, EPSILON));
+        assert!(approx_eq(input[1].grad(), 2.0, EPSILON));
+    }
+
+    // ============================================================================
+    // Matrix Initialization Tests
+    // ============================================================================
+
+    #[test]
+    fn test_matrix_std_zero() {
+        let mut rng = MersenneTwister::new(42);
+        let mat = matrix(&mut rng, 3, 4, 0.0);
+
+        for row in &mat {
+            for val in row {
+                assert!(
+                    approx_eq(val.data(), 0.0, EPSILON),
+                    "std=0 should produce all zeros"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_matrix_values_have_expected_scale() {
+        let mut rng = MersenneTwister::new(42);
+        let mat = matrix(&mut rng, 10, 10, 0.02);
+
+        // Most values should be within 3 std devs (0.06)
+        let mut out_of_range = 0;
+        for row in &mat {
+            for val in row {
+                if val.data().abs() > 0.1 {
+                    out_of_range += 1;
+                }
+            }
+        }
+
+        // Allow up to 5% outliers
+        assert!(out_of_range <= 5, "Too many values outside expected range");
+    }
 }

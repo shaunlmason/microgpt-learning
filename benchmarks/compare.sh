@@ -37,6 +37,46 @@ fi
 
 echo -e "${GREEN}Generating comparison from ${#result_files[@]} result file(s)...${NC}"
 
+# Collect data into temp files
+TEMP_DIR=$(mktemp -d)
+trap "rm -rf $TEMP_DIR" EXIT
+
+# Get languages and versions
+for f in "${result_files[@]}"; do
+    if [ -f "$f" ]; then
+        jq -r '[.language, .version] | @tsv' "$f" >> "$TEMP_DIR/lang_version.txt"
+    fi
+done
+
+# Get benchmark names from first file
+jq -r '.benchmarks[].name' "${result_files[0]}" > "$TEMP_DIR/benchmarks.txt"
+
+# Calculate column widths
+col1_width=9  # "Benchmark"
+while IFS= read -r bench; do
+    [ ${#bench} -gt $col1_width ] && col1_width=${#bench}
+done < "$TEMP_DIR/benchmarks.txt"
+
+# Calculate max language name width
+max_lang_width=0
+while IFS=$'\t' read -r lang ver; do
+    [ ${#lang} -gt $max_lang_width ] && max_lang_width=${#lang}
+done < "$TEMP_DIR/lang_version.txt"
+
+# Time values typically need 6-7 chars (e.g., "21.11ms")
+col_width=$((max_lang_width > 7 ? max_lang_width : 7))
+
+# Helper function to repeat a character
+repeat_char() {
+    local char="$1"
+    local count="$2"
+    local result=""
+    for ((i=0; i<count; i++)); do
+        result="${result}${char}"
+    done
+    echo "$result"
+}
+
 # Start building markdown
 {
     echo "# Benchmark Comparison"
@@ -44,89 +84,67 @@ echo -e "${GREEN}Generating comparison from ${#result_files[@]} result file(s)..
     echo "Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
     echo ""
 
-    # Collect language info
+    # Environment table
+    env_col1_width=10  # "Language"
+    env_col2_width=7   # "Version"
+    
+    # Find max widths
+    while IFS=$'\t' read -r lang ver; do
+        [ ${#lang} -gt $env_col1_width ] && env_col1_width=${#lang}
+        [ ${#ver} -gt $env_col2_width ] && env_col2_width=${#ver}
+    done < "$TEMP_DIR/lang_version.txt"
+    
     echo "## Environment"
     echo ""
-    echo "| Language | Version |"
-    echo "|----------|---------|"
-
-    for f in "${result_files[@]}"; do
-        if [ -f "$f" ]; then
-            lang=$(jq -r '.language' "$f")
-            version=$(jq -r '.version' "$f")
-            echo "| $lang | $version |"
-        fi
-    done
+    printf "| %-${env_col1_width}s | %-${env_col2_width}s |\n" "Language" "Version"
+    printf "|%s|%s|\n" "$(repeat_char '-' $((env_col1_width + 2)))" "$(repeat_char '-' $((env_col2_width + 2)))"
+    
+    while IFS=$'\t' read -r lang ver; do
+        printf "| %-${env_col1_width}s | %-${env_col2_width}s |\n" "$lang" "$ver"
+    done < "$TEMP_DIR/lang_version.txt"
 
     echo ""
     echo "## Results"
     echo ""
-
-    # Build header row dynamically
-    header="| Benchmark |"
-    separator="|-----------|"
-
+    
+    # Header row
+    printf "| %-${col1_width}s |" "Benchmark"
+    while IFS=$'\t' read -r lang ver; do
+        printf " %-${col_width}s |" "$lang"
+    done < "$TEMP_DIR/lang_version.txt"
+    echo ""
+    
+    # Separator
+    printf "|%s|" "$(repeat_char '-' $((col1_width + 2)))"
+    while IFS=$'\t' read -r lang ver; do
+        printf "%s|" "$(repeat_char '-' $((col_width + 2)))"
+    done < "$TEMP_DIR/lang_version.txt"
+    echo ""
+    
+    # Data rows - build time lookup for each file
+    file_index=0
     for f in "${result_files[@]}"; do
         if [ -f "$f" ]; then
-            lang=$(jq -r '.language' "$f")
-            header="$header $lang |"
-            separator="$separator------:|"
+            jq -r '.benchmarks[] | [.name, .time_ms] | @tsv' "$f" > "$TEMP_DIR/times_$file_index.txt"
+            ((file_index++))
         fi
     done
-
-    # Add ratio column if we have exactly 2 languages
-    if [ ${#result_files[@]} -eq 2 ]; then
-        header="$header Ratio |"
-        separator="$separator------:|"
-    fi
-
-    echo "$header"
-    echo "$separator"
-
-    # Get all benchmark names from first file
-    benchmark_names=$(jq -r '.benchmarks[].name' "${result_files[0]}")
-
-    # For each benchmark, output a row
-    while IFS= read -r bench_name; do
-        row="| $bench_name |"
-        times=()
-
-        for f in "${result_files[@]}"; do
-            if [ -f "$f" ]; then
-                time_ms=$(jq -r ".benchmarks[] | select(.name == \"$bench_name\") | .time_ms" "$f")
-                if [ "$time_ms" != "null" ] && [ -n "$time_ms" ]; then
-                    row="$row ${time_ms}ms |"
-                    times+=("$time_ms")
-                else
-                    row="$row N/A |"
-                    times+=("0")
-                fi
-            fi
-        done
-
-        # Calculate ratio if we have 2 results
-        if [ ${#result_files[@]} -eq 2 ] && [ ${#times[@]} -eq 2 ]; then
-            t1="${times[0]}"
-            t2="${times[1]}"
-            if [ "$t1" != "0" ] && [ "$t2" != "0" ]; then
-                # Calculate ratio (larger/smaller) and indicate which is faster
-                ratio=$(echo "scale=2; if ($t1 > $t2) $t1 / $t2 else $t2 / $t1" | bc)
-                if (( $(echo "$t1 < $t2" | bc -l) )); then
-                    lang1=$(jq -r '.language' "${result_files[0]}")
-                    row="$row ${ratio}x (${lang1}) |"
-                elif (( $(echo "$t2 < $t1" | bc -l) )); then
-                    lang2=$(jq -r '.language' "${result_files[1]}")
-                    row="$row ${ratio}x (${lang2}) |"
-                else
-                    row="$row 1.00x |"
-                fi
+    
+    # For each benchmark, look up times from each file
+    while IFS= read -r bench; do
+        printf "| %-${col1_width}s |" "$bench"
+        
+        for ((i=0; i<file_index; i++)); do
+            time_val=$(grep "^${bench}\t" "$TEMP_DIR/times_$i.txt" 2>/dev/null | cut -f2 || echo "N/A")
+            if [ "$time_val" != "N/A" ]; then
+                time_str="${time_val}ms"
             else
-                row="$row N/A |"
+                time_str="N/A"
             fi
-        fi
-
-        echo "$row"
-    done <<< "$benchmark_names"
+            printf " %-${col_width}s |" "$time_str"
+        done
+        echo ""
+    done < "$TEMP_DIR/benchmarks.txt"
 
     echo ""
     echo "## Benchmark Descriptions"
@@ -138,7 +156,7 @@ echo -e "${GREEN}Generating comparison from ${#result_files[@]} result file(s)..
     echo ""
     echo "---"
     echo ""
-    echo "*Lower times are better. Ratio shows how many times faster the winning language is.*"
+    echo "*Lower times are better. Times shown in milliseconds.*"
 
 } > "$OUTPUT_FILE"
 
